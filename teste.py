@@ -27,3 +27,8 @@ for arquivo in ["cnis.pdf", "cnis2.pdf", "cnis3.pdf", "cnis4.pdf"]:
     print("Data fim:", beneficio["data_fim"])
     print("Origem:", extrair_origem_vinculo(texto))
 
+with open("cnis5.pdf", "rb") as f:
+    pdf_bytes = f.read()
+
+resultado = extrair_dados_cnis(pdf_bytes)
+print(resultado)

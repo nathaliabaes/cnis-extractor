@@ -104,3 +104,30 @@ def extrair_origem_vinculo(texto):
             melhor_origem = nome_origem.title()  # aplica .title() só no final  
         
     return melhor_origem
+
+
+def extrair_dados_cnis(pdf_bytes):
+    texto = extrair_texto(pdf_bytes) # extrai o texto do PDF 
+    nome = extrair_nome(texto)
+    nit = extrair_nit(texto) 
+    cpf = extrair_cpf(texto)
+    data_nasc = extrair_data_nascimento(texto)
+    beneficio = extrair_dados_beneficio(texto)  # pega os dados do benefício
+    origem = extrair_origem_vinculo(texto)
+
+    dados = {
+        "nome": nome or "",
+        "nit": nit or "",
+        "cpf": cpf or "",
+        "data_nascimento": data_nasc or "",
+        "nb": beneficio["nb"] or "",
+        "especie": beneficio["especie"] or "",
+        "data_inicio": beneficio["data_inicio"] or "",
+        "data_fim": beneficio["data_fim"] or "",
+        "origem": origem or ""
+    }
+
+    if origem is None and nome is not None:
+        dados["aviso"] = "CNIS simplificado - solicitar modelo completo"
+    
+    return dados
