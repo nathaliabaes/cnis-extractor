@@ -1,6 +1,8 @@
 import pdfplumber
 import io
 import re
+import functions_framework
+import json
 
 def extrair_texto(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -105,7 +107,6 @@ def extrair_origem_vinculo(texto):
         
     return melhor_origem
 
-
 def extrair_dados_cnis(pdf_bytes):
     texto = extrair_texto(pdf_bytes) # extrai o texto do PDF 
     nome = extrair_nome(texto)
@@ -131,3 +132,19 @@ def extrair_dados_cnis(pdf_bytes):
         dados["aviso"] = "CNIS simplificado - solicitar modelo completo"
     
     return dados
+
+@functions_framework.http # marca essa função como o ponto de entrada da Cloud Function
+def processar_cnis(request):
+    # Verifica se veio um arquivo na requisição
+    if 'file' not in request.files:
+        return json.dumps({"erro": "Nenhum arquivo enviado"}), 400
+    
+    # Pega o arquivo enviado
+    arquivo = request.files['file']
+    pdf_bytes = arquivo.read()
+    
+    # Extrai os dados
+    resultado = extrair_dados_cnis(pdf_bytes)
+    
+    # Devolve o resultado em JSON
+    return json.dumps(resultado, ensure_ascii=False), 200
