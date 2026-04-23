@@ -37,9 +37,9 @@ def extrair_dados_beneficio(texto):
     # Pega todas as linhas que contém "Benefício"
     linhas = re.findall(r"(.+Benefício.+)", texto)
     
-    melhor_data = 0
-    dados = {"nb": None, "especie": None, "data_inicio": None, "data_fim": None}
-    
+    beneficios = []
+    nbs_vistos = set()  # para evitar duplicatas
+
     for linha in linhas:
         # Junta a linha com a próxima para pegar "TRABALHO" que pode quebrar
         idx = texto.find(linha)
@@ -49,32 +49,42 @@ def extrair_dados_beneficio(texto):
         
         if len(datas) < 2:
             continue  # pula se não tiver as duas datas
+
+        if len(datas) < 2:
+            continue
         
-        # Compara a Data Fim (segunda data)
-        dia, mes, ano = datas[1].split("/")
-        numero = int(ano) * 10000 + int(mes) * 100 + int(dia)
+        nb = re.search(r"(\d{10})\s+Benefício", linha)  # estava faltando!
+        if not nb:
+            continue
+            
+        nb_valor = nb.group(1).strip()
         
-        if numero > melhor_data:
-            melhor_data = numero
-            
-            nb = re.search(r"(\d{10})\s+Benefício", linha)
-            if nb:
-                dados["nb"] = nb.group(1).strip()
-            
-            especie = re.search(r"Benefício\s+(\d+\s+-\s+[^\n]+?)\s+\d{2}/\d{2}/\d{4}.+\n(\S+)", trecho)
-            if especie:
-                parte1 = especie.group(1).strip()
-                parte2 = especie.group(2).strip()
-                if re.match(r'^[A-ZÀÁÂÃÉÊÍÓÔÕÚÇ]+$', parte2) and len(parte2) > 2:  # adicionou len > 2
-                    esp = f"{parte1} {parte2}"
-                else:
-                    esp = parte1
-                dados["especie"] = esp.title()
-            
-            dados["data_inicio"] = datas[0]
-            dados["data_fim"] = datas[1]
+        nb_valor = nb.group(1).strip()
+
+        # Pula se já processou esse NB
+        if nb_valor in nbs_vistos:
+            continue
+        nbs_vistos.add(nb_valor)
+
+        especie = re.search(r"Benefício\s+(\d+\s+-\s+[^\n]+?)\s+\d{2}/\d{2}/\d{4}.+\n(\S+)", trecho)
+        esp = ""
+        if especie:
+            parte1 = especie.group(1).strip()
+            parte2 = especie.group(2).strip()
+            if re.match(r'^[A-ZÀÁÂÃÉÊÍÓÔÕÚÇ]+$', parte2) and len(parte2) > 2:
+                esp = f"{parte1} {parte2}"
+            else:
+                esp = parte1
+        
+        beneficios.append({
+            "nb": nb_valor,
+            "especie": esp.title() if esp else "",
+            "data_inicio": datas[0],
+            "data_fim": datas[1]
+        })
     
-    return dados
+    return beneficios           
+        
         
 def extrair_origem_vinculo(texto):
     linhas = re.findall(r"(.+Empregado.+)", texto)
@@ -113,7 +123,7 @@ def extrair_dados_cnis(pdf_bytes):
     nit = extrair_nit(texto) 
     cpf = extrair_cpf(texto)
     data_nasc = extrair_data_nascimento(texto)
-    beneficio = extrair_dados_beneficio(texto)  # pega os dados do benefício
+    beneficios = extrair_dados_beneficio(texto)  # pega os dados do benefício
     origem = extrair_origem_vinculo(texto)
 
     dados = {
@@ -121,10 +131,7 @@ def extrair_dados_cnis(pdf_bytes):
         "nit": nit or "",
         "cpf": cpf or "",
         "data_nascimento": data_nasc or "",
-        "nb": beneficio["nb"] or "",
-        "especie": beneficio["especie"] or "",
-        "data_inicio": beneficio["data_inicio"] or "",
-        "data_fim": beneficio["data_fim"] or "",
+        "beneficios": beneficios,
         "origem": origem or ""
     }
 
