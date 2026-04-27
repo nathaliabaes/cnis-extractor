@@ -172,16 +172,26 @@ def extrair_dados_cnis(pdf_bytes):
 
 @functions_framework.http # marca essa função como o ponto de entrada da Cloud Function
 def processar_cnis(request):
-    # Verifica se veio um arquivo na requisição
-    if 'file' not in request.files:
-        return json.dumps({"erro": "Nenhum arquivo enviado"}), 400
     
-    # Pega o arquivo enviado
-    arquivo = request.files['file']
-    pdf_bytes = arquivo.read()
-    
-    # Extrai os dados
+    # Verifica se veio URL ou arquivo
+    if 'url' in request.form:
+        # Baixa o PDF pela URL
+        url = request.form.get('url')
+        token = request.form.get('token', '')
+        
+        headers = {}
+        if token:
+            headers['Authorization'] = f'Bearer {token}'
+            
+        response = requests.get(url, headers=headers)
+        pdf_bytes = response.content
+        
+    elif 'file' in request.files:
+        # Recebe o arquivo direto
+        arquivo = request.files['file']
+        pdf_bytes = arquivo.read()
+    else:
+        return json.dumps({"erro": "Nenhum arquivo ou URL enviado"}), 400
+
     resultado = extrair_dados_cnis(pdf_bytes)
-    
-    # Devolve o resultado em JSON
     return json.dumps(resultado, ensure_ascii=False), 200
