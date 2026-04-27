@@ -4,7 +4,7 @@ import re
 import functions_framework
 import json
 import requests
-from urllib.parse import unquote
+
 
 def extrair_texto(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -178,32 +178,68 @@ def extrair_dados_cnis(pdf_bytes):
 def processar_cnis(request):
     
     pdf_bytes = None
-    
-    # Tenta receber JSON com URL
+    url = None
+
+    # 1. Recebe JSON (caso do n8n)
     if request.is_json:
-        data = request.get_json()
-        url = unquote(data.get('url', ''))
-        if url:
-            response = requests.get(url)
-            print(f"Status: {response.status_code}")
-            print(f"Content-Type: {response.headers.get('content-type')}")
-            pdf_bytes = response.content
-    
-    # Tenta receber Form Data com URL
+        data = request.get_json(silent=True)
+        url = data.get('url')
+
+    # 2. Recebe Form Data (fallback)
     elif 'url' in request.form:
-        url = unquote(request.form.get('url', ''))
-        response = requests.get(url)
-        print(f"Status: {response.status_code}")
-        print(f"Content-Type: {response.headers.get('content-type')}")
-        pdf_bytes = response.content
-    
-    # Tenta receber arquivo direto
+        url = request.form.get('url')
+
+    # 3. Recebe arquivo direto
     elif 'file' in request.files:
         arquivo = request.files['file']
         pdf_bytes = arquivo.read()
-    
-    if not pdf_bytes:
-        return json.dumps({"erro": "Nenhum arquivo ou URL enviado"}), 400
 
-    resultado = extrair_dados_cnis(pdf_bytes)
-    return json.dumps(resultado, ensure_ascii=False), 200
+    # DEBUG - ver o que está chegando
+    print(f"URL recebida: {url}")
+
+    # Se veio URL, tenta baixar o PDF
+    if url:
+        try:
+            response = requests.get(
+                url,
+                allow_redirects=True,
+                headers={
+                    "User-Agent": "Mozilla/5.0"
+                },
+                timeout=30
+            )
+
+            print(f"Status: {response.status_code}")
+            print(f"Content-Type: {response.headers.get('content-type')}")
+
+            if response.status_code != 200:
+                return json.dumps({
+                    "erro": "Erro ao baixar o PDF",
+                    "status_code": response.status_code
+                }), 400
+
+            pdf_bytes = response.content
+
+        except Exception as e:
+            return json.dumps({
+                "erro": "Erro ao fazer download",
+                "detalhe": str(e)
+            }), 500
+
+    # Validação final
+    if not pdf_bytes:
+        return json.dumps({
+            "erro": "Nenhum arquivo ou URL enviado"
+        }), 400
+
+    # Processa o CNIS
+    try:
+        resultado = extrair_dados_cnis(pdf_bytes)
+
+        return json.dumps(resultado, ensure_ascii=False), 200
+
+    except Exception as e:
+        return json.dumps({
+            "erro": "Erro ao processar PDF",
+            "detalhe": str(e)
+        }), 500
