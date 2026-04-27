@@ -175,16 +175,17 @@ def extrair_dados_cnis(pdf_bytes):
 # marca essa função como o ponto de entrada da Cloud Function
 @functions_framework.http
 def processar_cnis(request):
-    # Verifica se veio URL ou arquivo
+    
     if 'url' in request.form:
         url = request.form.get('url')
         token = request.form.get('token', '')
         
-        headers = {}
+        # Adiciona o token como parâmetro na URL
         if token:
-            headers['Authorization'] = f'Bearer {token}'
-            
-        response = requests.get(url, headers=headers)
+            separator = '&' if '?' in url else '?'
+            url = f"{url}{separator}auth={token}"
+        
+        response = requests.get(url)
         
         print(f"URL: {url}")
         print(f"Status: {response.status_code}")
