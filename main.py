@@ -3,6 +3,7 @@ import io
 import re
 import functions_framework
 import json
+import requests
 
 def extrair_texto(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -170,12 +171,12 @@ def extrair_dados_cnis(pdf_bytes):
     
     return dados
 
-@functions_framework.http # marca essa função como o ponto de entrada da Cloud Function
+
+# marca essa função como o ponto de entrada da Cloud Function
+@functions_framework.http
 def processar_cnis(request):
-    
     # Verifica se veio URL ou arquivo
     if 'url' in request.form:
-        # Baixa o PDF pela URL
         url = request.form.get('url')
         token = request.form.get('token', '')
         
@@ -184,10 +185,15 @@ def processar_cnis(request):
             headers['Authorization'] = f'Bearer {token}'
             
         response = requests.get(url, headers=headers)
+        
+        print(f"URL: {url}")
+        print(f"Status: {response.status_code}")
+        print(f"Content-Type: {response.headers.get('content-type')}")
+        print(f"Primeiros 200 chars: {response.text[:200]}")
+        
         pdf_bytes = response.content
         
     elif 'file' in request.files:
-        # Recebe o arquivo direto
         arquivo = request.files['file']
         pdf_bytes = arquivo.read()
     else:
