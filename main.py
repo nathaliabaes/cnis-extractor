@@ -177,22 +177,32 @@ def extrair_dados_cnis(pdf_bytes):
 @functions_framework.http
 def processar_cnis(request):
     
-    if 'url' in request.form:
-        url = unquote(request.form.get('url'))
-        
+    pdf_bytes = None
+    
+    # Tenta receber JSON com URL
+    if request.is_json:
+        data = request.get_json()
+        url = unquote(data.get('url', ''))
+        if url:
+            response = requests.get(url)
+            print(f"Status: {response.status_code}")
+            print(f"Content-Type: {response.headers.get('content-type')}")
+            pdf_bytes = response.content
+    
+    # Tenta receber Form Data com URL
+    elif 'url' in request.form:
+        url = unquote(request.form.get('url', ''))
         response = requests.get(url)
-        
-        print(f"URL: {url}")
         print(f"Status: {response.status_code}")
         print(f"Content-Type: {response.headers.get('content-type')}")
-        print(f"Primeiros 200 chars: {response.text[:200]}")
-        
         pdf_bytes = response.content
-        
+    
+    # Tenta receber arquivo direto
     elif 'file' in request.files:
         arquivo = request.files['file']
         pdf_bytes = arquivo.read()
-    else:
+    
+    if not pdf_bytes:
         return json.dumps({"erro": "Nenhum arquivo ou URL enviado"}), 400
 
     resultado = extrair_dados_cnis(pdf_bytes)
