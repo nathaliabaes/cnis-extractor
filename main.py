@@ -4,6 +4,7 @@ import re
 import functions_framework
 import json
 import requests
+from urllib.parse import unquote
 
 def extrair_texto(pdf_bytes):
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -177,13 +178,7 @@ def extrair_dados_cnis(pdf_bytes):
 def processar_cnis(request):
     
     if 'url' in request.form:
-        url = request.form.get('url')
-        token = request.form.get('token', '')
-        
-        # Adiciona o token como parâmetro na URL
-        if token:
-            separator = '&' if '?' in url else '?'
-            url = f"{url}{separator}auth={token}"
+        url = unquote(request.form.get('url'))
         
         response = requests.get(url)
         
