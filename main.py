@@ -4,6 +4,7 @@ import re
 import functions_framework
 import json
 import requests
+import calendar
 
 
 def extrair_texto(pdf_bytes):
@@ -88,66 +89,58 @@ def extrair_dados_beneficio(texto):
     return beneficios           
         
 def extrair_vinculos(texto):
-    # Pega todas as linhas que contém "Empregado"
     linhas = re.findall(r"(.+Empregado.+)", texto)
 
     vinculos = []
-    origens_vistas = set()  # para evitar duplicatas
 
     for linha in linhas:
         idx = texto.find(linha)
         trecho = texto[idx:idx+300]
         
         origem = re.search(r"\d{3}\.\d{5}\.\d{2}-\d\s+[\d./-]+\s+((?:(?!Empregado)\S+\s*)+)Empregado", trecho)
-        datas = re.findall(r"\d{2}/\d{2}/\d{4}", linha)
+        datas_completas = re.findall(r"\d{2}/\d{2}/\d{4}", linha)
+        ult_remun = re.search(r"(\d{2}/\d{4})$", linha)
 
-        # se não encontrou a empresa, pula essa linha
         if not origem:
             continue
 
-        # Se não tiver as duas datas, pula esse vínculo
-        if len(datas) < 2:
+        if not datas_completas:
             continue
 
         nome_origem = origem.group(1).strip()   
         
-        # Remove matrícula numérica longa (6+ dígitos)
         nome_origem = re.sub(r'\s+\d{6,}$', '', nome_origem).strip()
-
-        # Remove códigos alfanuméricos no final (ex: Matriz0001000327, COL186033387790000, Ed001)
         nome_origem = re.sub(r'\s+[A-Za-z]*\d+[A-Za-z0-9]*$', '', nome_origem).strip()
-
-        # Remove palavras em maiúsculo soltas no final que não são parte do nome (ex: FALIDO)
         nome_origem = re.sub(r'\s+FALIDO$', '', nome_origem).strip()
-
-        # Remove matrículas curtas soltas (3-5 dígitos isolados no final)
         nome_origem = re.sub(r'\s+\d{3,5}$', '', nome_origem).strip()
 
-        # Verifica se o nome continua na linha seguinte
         idx = texto.find(linha)
         proximo_trecho = texto[idx + len(linha):idx + len(linha) + 100]
         continuacao = re.match(r"\n([A-ZÀÁÂÃÉÊÍÓÔÕÚÇ .]+)\s+(?:Público|Agente)", proximo_trecho)
         
         if continuacao:
             nome_origem = nome_origem + " " + continuacao.group(1).strip()
-        # se já foi processada - pula 
-        if nome_origem in origens_vistas:
-            continue
-        origens_vistas.add(nome_origem)
 
-        # Monta o dicionário do vínculo
-        # datas[0] = Data Início, datas[1] = Data Fim
-        # Se não tiver a data, coloca string vazia
+        data_inicio = datas_completas[0]
+
+        if len(datas_completas) >= 2:
+            data_fim = datas_completas[1]
+        elif ult_remun:
+            mes, ano = ult_remun.group(1).split('/')
+            ultimo_dia = calendar.monthrange(int(ano), int(mes))[1]
+            data_fim = f"{ultimo_dia:02d}/{mes}/{ano}"
+        else:
+            continue
+
         vinculo = {
             "origem": nome_origem.title(),
-            "data_inicio": datas[0] if len(datas) > 0 else "",
-            "data_fim": datas[1] if len(datas) > 1 else ""
+            "data_inicio": data_inicio,
+            "data_fim": data_fim
         }
         
-        # Adiciona esse vínculo na lista
         vinculos.append(vinculo)
     
-    return vinculos  # retorna a lista com todos os vínculos
+    return vinculos
 
 def extrair_dados_cnis(pdf_bytes):
     texto = extrair_texto(pdf_bytes) # extrai o texto do PDF 
