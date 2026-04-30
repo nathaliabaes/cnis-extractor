@@ -151,6 +151,8 @@ def extrair_vinculos(texto):
 
 def extrair_dados_cnis(pdf_bytes):
     texto = extrair_texto(pdf_bytes) # extrai o texto do PDF 
+    print(f"Tamanho do texto extraído: {len(texto)}")
+    print(f"Primeiros 200 chars do texto: {texto[:200]}")
     nome = extrair_nome(texto)
     nit = extrair_nit(texto) 
     cpf = extrair_cpf(texto)
